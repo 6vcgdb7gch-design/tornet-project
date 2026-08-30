@@ -53,12 +53,14 @@ def stop_tor_service():
     else:
         os.system("sudo service tor stop")
 
-def initialize_environment():
-    install_pip()
-    install_requests()
-    install_tor()
-    start_tor_service()
-    print_start_message()
+def install_pip():
+    import importlib.util
+
+    if importlib.util.find_spec("pip") is None:
+        raise RuntimeError(
+            "pip не установлен. Установите его вручную "
+            "в активном виртуальном окружении."
+        )
 
 def print_start_message():
     print(f"{white} [{green}+{white}]{green} Tor service started. Please wait a minute for Tor to connect.")
