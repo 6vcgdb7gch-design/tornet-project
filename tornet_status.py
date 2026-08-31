@@ -1,6 +1,5 @@
-import json
 import socket
-import urllib.request
+import requests
 import socks
 from pathlib import Path
 
@@ -88,18 +87,13 @@ def check_tor_socks():
     socket.socket = socks.socksocket
 
     try:
-        request = urllib.request.Request(
+        response = requests.get(
             CHECK_URL,
             headers={"User-Agent": "tornet/0.1"},
-        )
-
-        with urllib.request.urlopen(
-            request,
             timeout=15,
-        ) as response:
-            return json.loads(
-                response.read().decode("utf-8")
-            )
+        )
+        response.raise_for_status()
+        return response.json()
 
     finally:
         socket.socket = original_socket

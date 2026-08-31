@@ -4,13 +4,15 @@
 # tornet - Automate IP address changes using Tor
 # Author: Fidal
 # Copyright (c) 2024 Fidal. All rights reserved.
-import os
-import time
+
 import argparse
-import requests
-import subprocess
-import signal
+import os
 import platform
+import signal
+import subprocess
+import time
+
+import requests
 from .utils import install_pip, install_requests, install_tor
 from .banner import print_banner
 
@@ -36,22 +38,23 @@ def is_tor_installed():
         return False
 
 def start_tor_service():
-    if is_arch_linux():
+    if platform.system() == "Darwin":
+        os.system("brew services start tor")
+    elif platform.system() == "Linux":
         os.system("sudo systemctl start tor")
-    else:
-        os.system("sudo service tor start")
 
 def reload_tor_service():
-    if is_arch_linux():
+    if platform.system() == "Darwin":
+        # У brew services нет отдельной команды reload
+        os.system("brew services restart tor")
+    elif platform.system() == "Linux":
         os.system("sudo systemctl reload tor")
-    else:
-        os.system("sudo service tor reload")
 
 def stop_tor_service():
-    if is_arch_linux():
+    if platform.system() == "Darwin":
+        os.system("brew services stop tor")
+    elif platform.system() == "Linux":
         os.system("sudo systemctl stop tor")
-    else:
-        os.system("sudo service tor stop")
 
 def install_pip():
     import importlib.util
@@ -67,16 +70,14 @@ def print_start_message():
     print(f"{white} [{green}+{white}]{green} Make sure to configure your browser to use Tor for anonymity.")
 
 def ma_ip():
-    if is_tor_running():
-        return ma_ip_tor()
-    else:
-        return ma_ip_normal()
+    return ma_ip_tor()
+
 
 def is_tor_running():
     try:
-        subprocess.check_output('pgrep -x tor', shell=True)
-        return True
-    except subprocess.CalledProcessError:
+        with socket.create_connection(("127.0.0.1", 9050), timeout=3):
+            return True
+    except OSError:
         return False
 
 def ma_ip_tor():
@@ -103,8 +104,28 @@ def ma_ip_normal():
         return None
 
 def change_ip():
-    reload_tor_service()
-    return ma_ip()
+    try:
+        from stem import Signal
+        from stem.control import Controller
+
+        with Controller.from_port(
+            address="127.0.0.1",
+            port=9051,
+        ) as controller:
+            controller.authenticate()
+            controller.signal(Signal.NEWNYM)
+
+        time.sleep(10)
+
+        new_ip = ma_ip_tor()
+
+        if new_ip:
+            return new_ip
+
+    except Exception as error:
+        print(f"Не удалось сменить Tor-цепочку: {error}")
+
+    return None
 
 def change_ip_repeatedly(interval, count):
     if count == 0:
@@ -143,7 +164,7 @@ def check_internet_connection():
     while True:
         time.sleep(1)
         try:
-            requests.get('http://www.google.com', timeout=1)
+            requests.get('https://www.google.com', timeout=1)
         except requests.RequestException:
             print(f"{white} [{red}!{white}] {red}Internet connection lost. Please check your internet connection.{reset}")
             return False
