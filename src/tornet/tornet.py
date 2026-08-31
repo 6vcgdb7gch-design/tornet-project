@@ -9,6 +9,7 @@ import argparse
 import os
 import platform
 import signal
+import socket
 import subprocess
 import time
 
@@ -168,6 +169,18 @@ def check_internet_connection():
         except requests.RequestException:
             print(f"{white} [{red}!{white}] {red}Internet connection lost. Please check your internet connection.{reset}")
             return False
+
+def initialize_environment():
+    if not is_tor_running():
+        print(f"{white} [{green}+{white}]{green} Starting Tor service...{reset}")
+        start_tor_service()
+        time.sleep(5)
+
+    if not is_tor_running():
+        raise RuntimeError("Tor-сервис не запустился или порт 9050 недоступен.")
+
+    print_start_message()
+
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
